@@ -373,7 +373,9 @@ def login():
         return redirect(url_for('index.index'))
 
     if 'oidc_token' in session:
-        me = json.loads(oidc.get('userinfo').text)
+        # me = json.loads(oidc.get('userinfo').text)
+        # /profile is the default endpoint of CAS for getting user's info
+        me = json.loads(oidc.get('profile').text)
         oidc_username = me[Setting().get('oidc_oauth_username')]
         oidc_givenname = me[Setting().get('oidc_oauth_firstname')]
         oidc_familyname = me[Setting().get('oidc_oauth_last_name')]
@@ -398,7 +400,7 @@ def login():
             session.pop('oidc_token', None)
             return redirect(url_for('index.login'))
 
-        if Setting().get('oidc_oauth_account_name_property') and Setting().get('oidc_oauth_account_description_property'):
+        if Setting().get('oidc_oauth_account_name_property') and Setting().get('oidc_oauth_account_description_property') and not Setting().get('autoprovisioning_oidc'):
             name_prop = Setting().get('oidc_oauth_account_name_property')
             desc_prop = Setting().get('oidc_oauth_account_description_property')
             if name_prop in me and desc_prop in me:
@@ -408,6 +410,25 @@ def login():
                 for ua in user_accounts:
                     if ua.name != account.name:
                         ua.remove_user(user)
+
+        if Setting().get('autoprovisioning_oidc'):
+            urn_value=Setting().get('urn_value_oidc')
+            key=Setting().get('autoprovisioning_attribute_oidc')
+            # key (eduPersonEntitlement) is located inside the 'attributes' scope of the user's object retrieved from CAS
+            if key in me['attributes']:
+                Entitlements=[me['attributes'][key]] if type(me['attributes'][key]) is not list else me['attributes'][key]
+                if len(Entitlements)==0 and Setting().get('purge_oidc'):
+                    user.set_role("User")
+                    user.revoke_privilege(True)
+                elif len(Entitlements)!=0:
+                    if checkForPDAEntries(Entitlements, urn_value):
+                        user.updateUser(Entitlements, urn_value)
+                    else:
+                        current_app.logger.warning('Not a single powerdns-admin record was found, possibly a typo in the prefix')
+                        if Setting().get('purge_oidc'):
+                            user.set_role("User")
+                            user.revoke_privilege(True)
+                            current_app.logger.warning('Procceding to revoke every privilige from ' +  user.username + '.' )
 
         session['user_id'] = user.id
         session['authentication_type'] = 'OAuth'
@@ -482,7 +503,7 @@ def login():
                 
             elif len(Entitlements)!=0:
                 if checkForPDAEntries(Entitlements, urn_value):
-                    user.updateUser(Entitlements)
+                    user.updateUser(Entitlements, urn_value)
                 else:
                     current_app.logger.warning('Not a single powerdns-admin record was found, possibly a typo in the prefix')
                     if Setting().get('purge'):
