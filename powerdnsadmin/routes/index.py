@@ -164,7 +164,7 @@ def login():
             result = user.create_local_user()
             if not result['status']:
                 session.pop('google_token', None)
-                return redirect(url_for('index.login'))
+                return redirect(url_for('index.login_gunet'))
 
         session['user_id'] = user.id
         login_user(user, remember=False)
@@ -191,7 +191,7 @@ def login():
             result = user.create_local_user()
             if not result['status']:
                 session.pop('github_token', None)
-                return redirect(url_for('index.login'))
+                return redirect(url_for('index.login_gunet'))
 
         session['user_id'] = user.id
         session['authentication_type'] = 'OAuth'
@@ -241,7 +241,7 @@ def login():
                 current_app.logger.warning('Unable to create ' + azure_username)
                 session.pop('azure_token', None)
                 # note: a redirect to login results in an endless loop, so render the login page instead
-                return render_template('login.html',
+                return render_template('login_gunet.html',
                                        saml_enabled=SAML_ENABLED,
                                        error=('User ' + azure_username +
                                               ' cannot be created.'))
@@ -273,7 +273,7 @@ def login():
                             azure_username +
                             ' has no relevant group memberships')
                         session.pop('azure_token', None)
-                        return render_template('login.html',
+                        return render_template('login_gunet.html',
                             saml_enabled=SAML_ENABLED,
                             error=('User ' + azure_username +
                                    ' is not in any authorised groups.'))
@@ -395,7 +395,7 @@ def login():
 
         if not result['status']:
             session.pop('oidc_token', None)
-            return redirect(url_for('index.login'))
+            return redirect(url_for('index.login_gunet'))
 
         #This checks if the account_name_property and account_description property were included in settings.
         if Setting().get('oidc_oauth_account_name_property') and Setting().get('oidc_oauth_account_description_property'):
@@ -438,7 +438,7 @@ def login():
         return redirect(url_for('index.index'))
 
     if request.method == 'GET':
-        return render_template('login.html', saml_enabled=SAML_ENABLED)
+        return render_template('login_gunet.html', saml_enabled=SAML_ENABLED)
     elif request.method == 'POST':
         # process Local-DB authentication
         username = request.form['username']
@@ -451,7 +451,7 @@ def login():
 
         if auth_method == 'LOCAL' and not Setting().get('local_db_enabled'):
             return render_template(
-                'login.html',
+                'login_gunet.html',
                 saml_enabled=SAML_ENABLED,
                 error='Local authentication is disabled')
 
@@ -462,7 +462,7 @@ def login():
         try:
             if Setting().get('verify_user_email') and user.email and not user.confirmed:
                 return render_template(
-                    'login.html',
+                    'login_gunet.html',
                     saml_enabled=SAML_ENABLED,
                     error='Please confirm your email address first')
 
@@ -470,14 +470,14 @@ def login():
                                     src_ip=request.remote_addr)
             if auth == False:
                 signin_history(user.username, 'LOCAL', False)
-                return render_template('login.html',
+                return render_template('login_gunet.html',
                                        saml_enabled=SAML_ENABLED,
                                        error='Invalid credentials')
         except Exception as e:
             current_app.logger.error(
                 "Cannot authenticate user. Error: {}".format(e))
             current_app.logger.debug(traceback.format_exc())
-            return render_template('login.html',
+            return render_template('login_gunet.html',
                                    saml_enabled=SAML_ENABLED,
                                    error=e)
 
@@ -487,11 +487,11 @@ def login():
                 good_token = user.verify_totp(otp_token)
                 if not good_token:
                     signin_history(user.username, 'LOCAL', False)
-                    return render_template('login.html',
+                    return render_template('login_gunet.html',
                                            saml_enabled=SAML_ENABLED,
                                            error='Invalid credentials')
             else:
-                return render_template('login.html',
+                return render_template('login_gunet.html',
                                        saml_enabled=SAML_ENABLED,
                                        error='Token required')
 
@@ -584,6 +584,68 @@ def get_azure_groups(uri):
         mygroups = []
     return mygroups
 
+@index_bp.route('/admin', methods=['GET', 'POST'])
+def adminlogin():
+    if g.user is not None and current_user.is_authenticated:
+        return redirect(url_for('dashboard.dashboard'))
+    
+    if request.method == 'GET':
+        return render_template('login_local.html')
+    elif request.method == 'POST':
+        # process Local-DB authentication
+        username = request.form['username']
+        password = request.form['password']
+        otp_token = request.form.get('otptoken')
+        auth_method = request.form.get('auth_method', 'LOCAL')
+        session['authentication_type'] = 'LOCAL'
+
+        if auth_method == 'LOCAL' and not Setting().get('local_db_enabled'):
+            return render_template(
+                'login_local.html',
+                error='Local authentication is disabled')
+
+        user = User(username=username,
+                    password=password,
+                    plain_text_password=password)
+
+        try:
+            if Setting().get('verify_user_email') and user.email and not user.confirmed:
+                return render_template(
+                    'login_local.html',
+                    error='Please confirm your email address first')
+
+            auth = user.is_validate(method=auth_method,
+                                    src_ip=request.remote_addr)
+            if auth == False:
+                signin_history(user.username, 'LOCAL', False)
+                return render_template('login_local.html',
+                                       error='Invalid credentials')
+        except Exception as e:
+            current_app.logger.error(
+                "Cannot authenticate user. Error: {}".format(e))
+            current_app.logger.debug(traceback.format_exc())
+            return render_template('login_local.html',
+                                   error=e)
+
+        # check if user enabled OPT authentication
+        if user.otp_secret:
+            if otp_token and otp_token.isdigit():
+                good_token = user.verify_totp(otp_token)
+                if not good_token:
+                    signin_history(user.username, 'LOCAL', False)
+                    return render_template('login_local.html',
+                                           error='Invalid credentials')
+            else:
+                return render_template('login_local.html',
+                                       error='Token required')
+
+        login_user(user)
+        signin_history(user.username, 'LOCAL', True)
+        return redirect(session.get('next', url_for('index.index')))
+
+@index_bp.route('/samlsignout')
+def logoutsaml():
+    return render_template('logout_saml.html')
 
 @index_bp.route('/logout')
 def logout():
@@ -598,7 +660,7 @@ def logout():
                     auth.logout(
                         name_id_format=
                         Setting().get('saml_nameid_format'),
-                        return_to=Setting().get('saml_logout_url'),
+                        # return_to=Setting().get('saml_logout_url'),
                         session_index=session['samlSessionIndex'],
                         name_id=session['samlNameId']))
             except:
@@ -1091,19 +1153,21 @@ def saml_authorized():
                         user.username),
                                     created_by='SAML Autoprovision')
                     history.add()
+                user.revoke_privilege(True)
             elif len(Entitlements)!=0:
                 if checkForPDAEntries(Entitlements, urn_prefix):
                     user.updateUser(Entitlements, urn_prefix)
                 else:
                     current_app.logger.warning('Not a single powerdns-admin record was found, possibly a typo in the prefix')
                     if Setting().get('saml_purge'):
-                        current_app.logger.warning('Procceding to revoke every privilige from ' +  user.username + '.' )
+                        current_app.logger.warning('Procceding to revoke every privilege from ' +  user.username + '.' )
                         if user.role.name != 'User':
                             user.role_id = Role.query.filter_by(name='User').first().id
                             history = History(msg='Demoting {0} to user'.format(
                                 user.username),
                                             created_by='SAML Autoprovision')
                             history.add()
+                        user.revoke_privilege(True)
 
         user.plain_text_password = None
         user.update_profile()
@@ -1172,10 +1236,12 @@ def saml_logout():
         clear_session()
         if url is not None:
             return redirect(url)
-        elif Setting().get('saml_logout_url') is not None:
-            return redirect(Setting().get('saml_logout_url'))
         else:
-            return redirect(url_for('login'))
+            return render_template('logout_saml.html')
+        # elif Setting().get('saml_logout_url') is not None:
+        #     return redirect(Setting().get('saml_logout_url'))
+        # else:
+        #     return redirect(url_for('login'))
     else:
         return render_template('errors/SAML.html', errors=errors)
 

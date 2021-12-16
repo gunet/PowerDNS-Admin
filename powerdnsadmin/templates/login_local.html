@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Admin Login - {{ SITE_NAME }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <!-- Tell the browser to be responsive to screen width -->
+  <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+  {% assets "css_login" -%}
+    <link rel="stylesheet" href="{{ ASSET_URL }}">
+  {%- endassets %}
+  {% if SETTING.get('custom_css') %}
+    <link rel="stylesheet" href="/static/custom/{{ SETTING.get('custom_css') }}">
+  {% endif %}
+</head>
+
+<body class="hold-transition login-page">
+  <div class="login-box">
+    <div class="login-logo">
+      <a href="{{ url_for('index.index') }}"><b>PowerDNS</b>-Admin</a>
+    </div>
+    <!-- /.login-logo -->
+    <div class="login-box-body">
+      {% if error %}
+        <div class="alert alert-danger alert-dismissible">
+          <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+          {{ error }}
+        </div>
+      {% endif %}
+      {% if SETTING.get('local_db_enabled') %}
+        <form action="" method="post" data-toggle="validator">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group">
+            <input type="text" class="form-control" placeholder="Username" name="username"
+              data-error="Please input your username" required {% if username %}value="{{ username }}" {% endif %}>
+            <span class="help-block with-errors"></span>
+          </div>
+          <div class="form-group">
+            <input type="password" class="form-control" placeholder="Password" name="password"
+              data-error="Please input your password" required {% if password %}value="{{ password }}" {% endif %}>
+            <span class="help-block with-errors"></span>
+          </div>
+        {% if SETTING.get('otp_field_enabled') %}
+          <div class="form-group">
+            <input type="otptoken" class="form-control" placeholder="OTP Token" name="otptoken">
+          </div>
+        {% endif %}
+        <div class="form-group">
+          <input type="hidden" name="auth_method" value="LOCAL">
+        </div>
+
+        <div class="row">
+          <div class="col-xs-8"></div>
+          <div class="col-xs-4">
+            <button type="submit" class="btn btn-flat btn-primary btn-block">Sign In</button>
+          </div>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+    <!-- /.login-box-body -->
+    <div class="login-box-footer">
+      <center>
+        <p></p>
+        <p>Powered by <a href="https://github.com/ngoduykhanh/PowerDNS-Admin">PowerDNS-Admin</a></p>
+      </center>
+    </div>
+  </div>
+  <!-- /.login-box -->
+
+  {% assets "js_login" -%}
+    <script type="text/javascript" src="{{ ASSET_URL }}"></script>
+  {%- endassets %}
+  {% assets "js_validation" -%}
+    <script type="text/javascript" src="{{ ASSET_URL }}"></script>
+  {%- endassets %}
+</body>
+</html>
