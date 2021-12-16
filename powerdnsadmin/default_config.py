@@ -30,5 +30,5 @@ SQLALCHEMY_DATABASE_URI = 'mysql://{}:{}@{}/{}'.format(
 # SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'pdns.db')
 
 # SAML Authnetication
-SAML_ENABLED = False
-SAML_ASSERTION_ENCRYPTED = True
+# SAML_ENABLED = False
+# SAML_ASSERTION_ENCRYPTED = True

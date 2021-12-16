@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Logout - {{ SITE_NAME }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <!-- Tell the browser to be responsive to screen width -->
+  <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+  {% assets "css_login" -%}
+    <link rel="stylesheet" href="{{ ASSET_URL }}">
+  {%- endassets %}
+  {% if SETTING.get('custom_css') %}
+    <link rel="stylesheet" href="/static/custom/{{ SETTING.get('custom_css') }}">
+  {% endif %}
+</head>
+
+<body style="background-color: #d2d6de">
+  <div style="height:30%"></div>
+  <div class="login-logo">
+    <a href="{{ url_for('index.index') }}"><b>PowerDNS</b>-Admin</a>
+  </div>
+  <div style="width:50%; height:20%; margin:auto">
+    <h2 class="headline text-center">PowerDNS-Admin Sign Out successful. Close browser to sign out of other services.</h2>
+  </div>
+  <div class="login-box-footer text-center" style="position:absolute; bottom:0; width:100%">
+    <center>
+      <p></p>
+      <p>Powered by <a href="https://github.com/PowerDNS-Admin/PowerDNS-Admin">PowerDNS-Admin</a></p>
+    </center>
+  </div>
+</body>
