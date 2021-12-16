@@ -644,40 +644,42 @@ def adminlogin():
         return redirect(session.get('next', url_for('index.index')))
 
 @index_bp.route('/samlsignout')
-def logoutsaml():
+def samlsignout():
     return render_template('logout_saml.html')
 
 @index_bp.route('/logout')
 def logout():
     if Setting().get('saml_enabled'
-        ) and 'samlSessionIndex' in session and Setting().get(
-            'saml_logout'):
-        req = saml.prepare_flask_request(request)
-        auth = saml.init_saml_auth(req)
-        if Setting().get('saml_logout_url'):
+        ) and 'samlSessionIndex' in session and Setting().get('saml_logout'):
+            req = saml.prepare_flask_request(request)
+            auth = saml.init_saml_auth(req)
+            if Setting().get('saml_logout_url'):
+                try:
+                    return redirect(
+                        auth.logout(
+                            name_id_format=
+                            Setting().get('saml_nameid_format'),
+                            return_to=Setting().get('saml_logout_url'),
+                            session_index=session['samlSessionIndex'],
+                            name_id=session['samlNameId']))
+                except:
+                    current_app.logger.info(
+                    "SAML: Your IDP does not support Single Logout.")
             try:
                 return redirect(
                     auth.logout(
                         name_id_format=
                         Setting().get('saml_nameid_format'),
-                        # return_to=Setting().get('saml_logout_url'),
+                        return_to=url_for('index.samlsignout'),
                         session_index=session['samlSessionIndex'],
                         name_id=session['samlNameId']))
             except:
                 current_app.logger.info(
-                "SAML: Your IDP does not support Single Logout.")
-        try:
-            return redirect(
-                auth.logout(
-                    name_id_format=
-                    Setting().get('saml_nameid_format'),
-                    session_index=session['samlSessionIndex'],
-                    name_id=session['samlNameId']))
-        except:
-            current_app.logger.info(
-                "SAML: Your IDP does not support Single Logout.")
-
-    redirect_uri = url_for('index.login')
+                    "SAML: Your IDP does not support Single Logout.")
+    if 'samlSessionIndex' in session:
+        redirect_uri = url_for('index.samlsignout')
+    else:
+        redirect_uri = url_for('index.login')
     oidc_logout = Setting().get('oidc_oauth_logout_url')
 
     if 'oidc_token' in session and oidc_logout:
