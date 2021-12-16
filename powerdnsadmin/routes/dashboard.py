@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, url_for, current_app, request, jso
 from flask_login import login_required, current_user, login_manager
 from sqlalchemy import not_
 
+from ..decorators import operator_role_required
 from ..lib.utils import customBoxes
 from ..models.user import User, Anonymous
 from ..models.account import Account
@@ -60,7 +61,7 @@ def domains_custom(boxId):
                 ))
 
     template = current_app.jinja_env.get_template("dashboard_domain.html")
-    render = template.make_module(vars={"current_user": current_user})
+    render = template.make_module(vars={"current_user": current_user, "allow_user_view_history": Setting().get('allow_user_view_history')})
 
     columns = [
         Domain.name, Domain.dnssec, Domain.type, Domain.serial, Domain.master,
@@ -150,6 +151,11 @@ def dashboard():
     else:
         current_app.logger.info('Updating domains in background...')
 
+
+    show_bg_domain_button = BG_DOMAIN_UPDATE
+    if BG_DOMAIN_UPDATE and current_user.role.name not in ['Administrator', 'Operator']:
+        show_bg_domain_button = False
+
     if current_user.role.name == 'User' and not Setting().get(
             'allow_user_create_domain') and not Setting().get('allow_user_view_history'):
         result = current_user.is_authenticate()
@@ -168,19 +174,20 @@ def dashboard():
     if current_user.role.name in ['Administrator', 'Operator']:
         domain_count = Domain.query.count()
         history_number = History.query.count()
-        history = History.query.order_by(History.created_on.desc()).limit(4)
+        history = History.query.order_by(History.created_on.desc()).limit(4).all()
     elif Setting().get('allow_user_view_history'):
         history = db.session.query(History) \
             .join(Domain, History.domain_id == Domain.id) \
             .outerjoin(DomainUser, Domain.id == DomainUser.domain_id) \
             .outerjoin(Account, Domain.account_id == Account.id) \
             .outerjoin(AccountUser, Account.id == AccountUser.account_id) \
+            .order_by(History.created_on.desc()) \
             .filter(
             db.or_(
                 DomainUser.user_id == current_user.id,
                 AccountUser.user_id == current_user.id
-            )).order_by(History.created_on.desc())
-        history_number = history.count()
+            )).all()
+        history_number = len(history)  # history.count()
         history = history[:4]
         domain_count = db.session.query(Domain) \
             .outerjoin(DomainUser, Domain.id == DomainUser.domain_id) \
@@ -191,6 +198,10 @@ def dashboard():
                     DomainUser.user_id == current_user.id,
                     AccountUser.user_id == current_user.id
                 )).count()
+
+    from .admin import convert_histories, DetailedHistory
+    detailedHistories = convert_histories(history)
+    
     server = Server(server_id='localhost')
     statistics = server.get_statistic()
     if statistics:
@@ -207,13 +218,14 @@ def dashboard():
                            user_num=user_num,
                            history_number=history_number,
                            uptime=uptime,
-                           histories=history,
-                           show_bg_domain_button=BG_DOMAIN_UPDATE,
+                           histories=detailedHistories,
+                           show_bg_domain_button=show_bg_domain_button,
                            pdns_version=Setting().get('pdns_version'))
 
 
 @dashboard_bp.route('/domains-updater', methods=['GET', 'POST'])
 @login_required
+@operator_role_required
 def domains_updater():
     current_app.logger.debug('Update domains in background')
     d = Domain().update()
