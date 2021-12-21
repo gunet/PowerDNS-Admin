@@ -93,24 +93,24 @@
                         <tr>
                             {% if changes[2] == "unchanged" %}
                             <td>
-                                {{changes[0]['content']}}
+                                {{changes[0]['content'] | e}}
                             </td>
                             {% elif changes[2] == "addition" %}
                             <td>
                                 <span style="background-color:  lightgreen">
-                                    {{changes[1]['content']}}
+                                    {{changes[1]['content'] | e}}
                                 </span>
                             </td>
                             {% elif changes[2] == "deletion" %}
                             <td>
                                 <s
                                     style="text-decoration-color: rgba(194, 10, 10, 0.6); text-decoration-thickness: 2px;">
-                                    {{changes[0]['content']}}
+                                    {{changes[0]['content'] | e}}
                                 </s>
                             </td>
                             {% elif changes[2] == "status" %}
                             <td>
-                                {{changes[0]['content']}}
+                                {{changes[0]['content'] | e}}
                             </td>
                             {% endif %}
                         </tr>
@@ -121,7 +121,7 @@
             </td>
             <td>
                 {% for comments in hist_rec_entry.add_rrest['comments'] %}
-                {{comments['content'] }}
+                {{comments['content'] | e }}
                 <br/>
                 {% endfor %}
             </td>
