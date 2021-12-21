@@ -242,6 +242,15 @@ class Setting(db.Model):
         'ttl_options': '1 minute,5 minutes,30 minutes,60 minutes,24 hours',
         'otp_field_enabled': True,
         'custom_css': '',
+        'pwd_min_len' : 10,
+        'pwd_min_lowercase' : 3,
+        'pwd_min_uppercase' : 2,
+        'pwd_min_digits' : 2,
+        'pwd_min_special' : 1,
+        'pwd_must_not_contain' : 'username,firstname',
+        'max_history_records': 1000,
+        'zxcvbn_enabled': False,
+        'zxcvbn_guesses_log' : 11,
         'otp_force': False,
         'max_history_records': 1000
     }

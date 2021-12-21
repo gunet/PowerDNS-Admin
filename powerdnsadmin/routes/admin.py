@@ -1400,7 +1400,17 @@ def setting_authentication():
             local_db_enabled = True if request.form.get(
                 'local_db_enabled') else False
             signup_enabled = True if request.form.get(
-                'signup_enabled', ) else False
+                'signup_enabled') else False
+            enable_zxcvbn = request.form.get('pass-policy-sel') == 'heuristic-policy'
+            if not enable_zxcvbn and signup_enabled:
+                min_len = int(request.form.get('min_len'))
+                min_lowercase = int(request.form.get('min_lowercase'))
+                min_uppercase = int(request.form.get('min_uppercase'))
+                min_digits = int(request.form.get('min_digits'))
+                min_special = int(request.form.get('min_special'))
+                must_not_contain = request.form.get('must_not_contain')
+            elif enable_zxcvbn and signup_enabled:
+                complexity = int(request.form.get('complexity'))
 
             if not has_an_auth_method(local_db_enabled=local_db_enabled):
                 result = {
@@ -1412,6 +1422,22 @@ def setting_authentication():
             else:
                 Setting().set('local_db_enabled', local_db_enabled)
                 Setting().set('signup_enabled', signup_enabled)
+                if not enable_zxcvbn and signup_enabled:
+                    for attribute in must_not_contain.split(","):
+                        if attribute not in ['firstname','lastname','username','email']:
+                            result = {'status': False, 'msg': "Incorrect syntax in 'Must not contain' field"}
+                            return render_template('admin_setting_authentication.html', result=result)
+                    Setting().set('pwd_min_len', min_len)
+                    Setting().set('pwd_min_lowercase', min_lowercase)
+                    Setting().set('pwd_min_uppercase', min_uppercase)
+                    Setting().set('pwd_min_digits', min_digits)
+                    Setting().set('pwd_min_special', min_special)
+                    Setting().set('pwd_must_not_contain', must_not_contain)
+                    Setting().set('zxcvbn_enabled', False)
+                elif enable_zxcvbn and signup_enabled:
+                    Setting().set('zxcvbn_guesses_log', complexity)
+                    Setting().set('zxcvbn_enabled', True)
+
                 result = {'status': True, 'msg': 'Saved successfully'}
         elif conf_type == 'ldap':
             ldap_enabled = True if request.form.get('ldap_enabled') else False

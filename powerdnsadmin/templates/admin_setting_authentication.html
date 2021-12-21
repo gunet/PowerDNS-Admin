@@ -27,8 +27,9 @@
         }
 
         window.onload = function() {
-            ldapSelection();
+            ldapSelection();            
         }
+
     </script>
 </section>
 {% endblock %}
@@ -60,21 +61,107 @@
                         </ul>
                         <div class="tab-content">
                             <div class="tab-pane active" id="tabs-general">
-                                <form role="form" method="post">
-                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                    <input type="hidden" value="general" name="config_tab" />
-                                    <div class="form-group">
-                                        <input type="checkbox" id="local_db_enabled" name="local_db_enabled" class="checkbox" {% if SETTING.get('local_db_enabled') %}checked{% endif %}>
-                                        <label for="local_db_enabled">Local DB Authentication</label>
-                                    </div>
-                                    <div class="form-group">
-                                        <input type="checkbox" id="signup_enabled" name="signup_enabled" class="checkbox" {% if SETTING.get('signup_enabled') %}checked{% endif %}>
-                                        <label for="signup_enabled">Allow users to sign up</label>
-                                    </div>
-                                    <div class="form-group">
-                                        <button type="submit" class="btn btn-flat btn-primary">Save</button>
-                                    </div>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <form role="form" method="post" >
+                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" value="general" name="config_tab" />
+                                            <div class="form-group">
+                                                <input type="checkbox" id="local_db_enabled" name="local_db_enabled" class="checkbox" {% if SETTING.get('local_db_enabled') %}checked{% endif %}>
+                                                <label for="local_db_enabled">Local DB Authentication</label>
+                                            </div>
+                                            <div class="form-group">
+                                                <input type="checkbox" id="signup_enabled" name="signup_enabled" class="checkbox" {% if SETTING.get('signup_enabled') %}checked{% endif %}>
+                                                <label for="signup_enabled">Allow users to sign up</label>
+                                            </div>
+
+                                            <legend>Password Policy </br>(database authentication)</legend>
+                                            <div class='form-check'>
+                                                <input type="radio" class='form-check-input' id="char-based-policy" name="pass-policy-sel" value="char-based-policy" {% if SETTING.get('zxcvbn_enabled')== false %}checked{% endif %}>
+                                                <label for="char-based-policy">Character-specific password policy</label><br>
+                                            </div>
+
+                                            <div class="form-check">
+                                                <input type="radio" class='form-check-input' id="heuristic-policy" name="pass-policy-sel" value="heuristic-policy" {% if SETTING.get('zxcvbn_enabled')== true %}checked{% endif %}>
+                                                <label for="heuristic-policy">zxcvbn heuristic password</label><br>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="min_len">Minimum length</label>
+                                                <input type="text" class="form-control char_specified" name="min_len" id="min_len"  value="{{ SETTING.get('pwd_min_len') }}"
+                                                {% if SETTING.get('zxcvbn_enabled')== true %}disabled{% endif %}>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="min_lowercase">Minimum number of lowercase letters</label>
+                                                <input type="text" class="form-control char_specified" name="min_lowercase" id="min_lowercase"  value="{{ SETTING.get('pwd_min_lowercase') }}"
+                                                {% if SETTING.get('zxcvbn_enabled')== true %}disabled{% endif %}>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="min_uppercase">Minimum number of uppercase letters</label>
+                                                <input type="text" class="form-control char_specified" name="min_uppercase" id="min_uppercase"  value="{{ SETTING.get('pwd_min_uppercase') }}"
+                                                {% if SETTING.get('zxcvbn_enabled')== true %}disabled{% endif %}>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="min_digits">Minimum number of digits</label>
+                                                <input type="text" class="form-control char_specified" name="min_digits" id="min_digits"  value="{{ SETTING.get('pwd_min_digits') }}"
+                                                {% if SETTING.get('zxcvbn_enabled')== true  %}disabled{% endif %}>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="min_special">Minimum number of special characters</label>
+                                                <input type="text" class="form-control char_specified" name="min_special" id="min_special"  value="{{ SETTING.get('pwd_min_special') }}"
+                                                {% if SETTING.get('zxcvbn_enabled')== true %}disabled{% endif %}>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="must_not_contain">Must not contain</label>
+                                                <input type="text" class="form-control char_specified" name="must_not_contain" id="must_not_contain" placeholder="username,firstname,lastname,email"  value="{{ SETTING.get('pwd_must_not_contain') }}" 
+                                                {% if SETTING.get('zxcvbn_enabled')== true %}disabled{% endif %}>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label for="must_not_contain">(zxcvbn)Complexity</label>
+                                                <input type="text" class="form-control heuristic_group" name="complexity" id="complexity" value="{{ SETTING.get('zxcvbn_guesses_log') }}" 
+                                                {% if SETTING.get('zxcvbn_enabled')== false %}disabled{% endif %}>
+                                            </div>
+                                            <div class="form-group">
+                                                <button type="submit" class="btn btn-flat btn-primary">Save</button>
+                                            </div>
+                                        </div>
                                     
+                                        <div class="col-md-8">
+                                            <legend>Help</legend>
+                                            <dl class="dl-horizontal">
+                                                <dt>Character-specific Password Policy</dt>
+                                                <dd>Define the password policy - character composition of the users' password
+                                                    <ul>
+                                                        <li>
+                                                            Must not contain - This field must contain the attributes which must not be part of the user's password
+                                                            .
+                                                        </li>
+                                                        <li>
+                                                        The available attributes are 'username', 'firstname', 'lastname' and 'email'. 
+                                                        </li>
+                                                        <li>
+                                                            The attributes must be seperated
+                                                            by comma ',' character. (eg. 'firstname,lastname,username')
+                                                        </li>
+                                                        <li>
+                                                            Acceptable special characters are: [!@#$%^&*()_+
+                                                        </li>
+                                                    </ul>
+                                                </dd>
+                                                <dt>(zxcvbn) Heuristic password policy</dt>
+                                                <dd>Define the password complexity log factor
+                                                    <ul>
+                                                        <li>
+                                                            The default value of the log factor is 11, as it is considered secure.
+                                                            More information about the package, can be found at:
+                                                            <a href="https://www.usenix.org/system/files/conference/usenixsecurity16/sec16_paper_wheeler.pdf">Paper</a>
+
+                                                        </li>
+                                                    </ul>
+                                                </dd>
+                                            </dl>
+                                        </div>
+                                    </div>
                                 </form>
                             </div>
                             <div class="tab-pane" id="tabs-ldap">
@@ -1291,6 +1378,32 @@
         });
     });
     
+    // $('#zxcvbn').on('ifChecked', function(event){
+    //     // alert(event.type + ' callback');
+    //     $(".form-control.char_specified").prop("disabled", true)
+    // });
+    // $('#zxcvbn').on('ifUnchecked', function(event){
+    //     // alert(event.type + ' callback');
+    //     $(".form-control.char_specified").prop("disabled", false)
+    // });
+
+
+    $('input[name="pass-policy-sel"]:radio').on('click', function() {
+        if (document.getElementById('heuristic-policy').checked == true) {
+            $(".form-control.char_specified").prop("disabled", true)
+            $(".form-control.heuristic_group").prop("disabled", false)
+        }
+        else if (document.getElementById('char-based-policy').checked == true) {
+            $(".form-control.char_specified").prop("disabled", false)
+            $(".form-control.heuristic_group").prop("disabled", true)
+        }
+    })
+
+    $('#zxcvbn').iCheck({
+        checkboxClass : 'icheckbox_square-blue',
+        increaseArea : '20%'
+    })
+
     $(function() {
         $('#tabs').tabs({
             // add url anchor tags

@@ -20,6 +20,8 @@
   <![endif]-->
 </head>
 
+{% import 'password_policy_macro.html' as password_policy_macro %}
+
 <body class="hold-transition register-page">
   <div class="register-box">
     <div class="register-logo">
@@ -36,38 +38,41 @@
       <form action="{{ url_for('index.register') }}" method="post" data-toggle="validator">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <div class="form-group has-feedback">
-          <input type="text" class="form-control" placeholder="First Name" name="firstname"
+          <input type="text" class="form-control" placeholder="First Name" id="firstname" name="firstname"
             data-error="Please input your first name" required>
           <span class="glyphicon glyphicon-user form-control-feedback"></span>
           <span class="help-block with-errors"></span>
         </div>
         <div class="form-group has-feedback">
-          <input type="text" class="form-control" placeholder="Last name" name="lastname"
+          <input type="text" class="form-control" placeholder="Last name" id="lastname" name="lastname"
             data-error="Please input your last name" required>
           <span class="glyphicon glyphicon-user form-control-feedback"></span>
           <span class="help-block with-errors"></span>
         </div>
         <div class="form-group has-feedback">
-          <input type="email" class="form-control" placeholder="Email" name="email"
+          <input type="email" class="form-control" placeholder="Email" id="email" name="email"
             data-error="Please input your valid email address" required>
           <span class="glyphicon glyphicon-envelope form-control-feedback"></span>
           <span class="help-block with-errors"></span>
         </div>
         <p class="login-box-msg">Enter your account details below</p>
         <div class="form-group has-feedback">
-          <input type="text" class="form-control" placeholder="Username" name="username"
+          <input type="text" class="form-control" placeholder="Username" id="username" name="username"
             data-error="Please input your username" required>
           <span class="glyphicon glyphicon-user form-control-feedback"></span>
           <span class="help-block with-errors"></span>
         </div>
-        <div class="form-group has-feedback">
+        <div id="pass-feedback" class="form-group">
           <input type="password" class="form-control" placeholder="Password" id="password" name="password"
-            data-error="Please input your password" required>
-          <span class="glyphicon glyphicon-lock form-control-feedback"></span>
+            required>
+          {% if SETTING.get('zxcvbn_enabled') == true %}
+          <small class="help-block" id="password-text"></small> <br>
+          {% endif %}
+          <div id="policy-err" style='color: #df5948;'></div>
         </div>
         <div class="form-group has-feedback">
           <input type="password" class="form-control" placeholder="Retype password" name="rpassword"
-            data-match="#password" data-match-error="Password confirmation does not match" required>
+            data-match="#password" id="rpassword" data-match-error="Password confirmation does not match" required>
           <span class="glyphicon glyphicon-log-in form-control-feedback"></span>
           <span class="help-block with-errors"></span>
         </div>
@@ -76,7 +81,7 @@
             <button type="button" class="btn btn-flat btn-block" id="button_back">Back</button>
           </div>
           <div class="col-xs-4 pull-right">
-            <button type="submit" class="btn btn-flat btn-primary btn-block">Register</button>
+            <button type="submit" id="pwd-submit" class="btn btn-flat btn-primary btn-block">Register</button>
           </div>
           <!-- /.col -->
         </div>
@@ -103,6 +108,32 @@
         window.location.href = '{{ url_for('index.login') }}';
       })
     });
+
+    {% call password_policy_macro.password_policy(0, 0, SETTING.get('zxcvbn_enabled'), SETTING.get('pwd_min_len'), SETTING.get('pwd_min_digits'), SETTING.get('pwd_min_uppercase'), SETTING.get('pwd_min_lowercase'), SETTING.get('pwd_min_special'), SETTING.get('pwd_must_not_contain')) %} 
+    {% endcall %}
+
+    {% if SETTING.get('zxcvbn_enabled') == false %}
+    // handling password complexity requirements message
+    $(':input').on('keyup', function() {
+
+      var input = document.getElementById('password');
+      var pass = input.value;
+
+        var rpass = document.getElementById('rpassword').value;
+        var pass = input.value;
+        if (rpass != pass || rpass.length == 0 || pass.length == 0) {
+            document.getElementById('pwd-submit').disabled = true;
+        }
+        var fname = document.getElementById('firstname').value;
+        var lname = document.getElementById('lastname').value;
+        var email = document.getElementById('email').value;
+        var username = document.getElementById('username').value;
+        
+        charbased_password_policy(fname, lname, username, email, pass, rpass);
+        
+
+    });
+    {% endif %}
   </script>
 </body>
 

@@ -8,8 +8,9 @@ import base64
 from distutils.util import strtobool
 from yaml import Loader, load
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
-from flask import Blueprint, render_template, make_response, url_for, current_app, g, session, request, redirect, abort
+from flask import Blueprint, render_template, render_template, make_response, url_for, current_app, g, session, request, redirect, abort, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
+from zxcvbn import zxcvbn
 
 from .base import login_manager
 from ..lib import utils
@@ -736,6 +737,107 @@ def logout():
 
     return redirect(redirect_uri)
 
+def password_quality_check(user, password):
+    import string
+    specialchars_vocab = "[!@#$%^&*()_+"
+    def is_satisfied(setting_name, vocab):
+        n_required_chars = int(Setting().get(setting_name))
+        n_found_chars = 0
+        for c in password:
+            if c in vocab:
+                n_found_chars += 1
+        return n_found_chars >= n_required_chars
+    
+    if len(password) < int(Setting().get('pwd_min_len')):
+        return False
+    if not is_satisfied('pwd_min_digits', string.digits) or \
+                not is_satisfied('pwd_min_lowercase', string.ascii_lowercase) or \
+                not is_satisfied('pwd_min_uppercase', string.ascii_uppercase) or \
+                not is_satisfied('pwd_min_special', specialchars_vocab):
+        return False
+    must_not_contain_fields_str = Setting().get('pwd_must_not_contain')
+    must_not_contain_fields = must_not_contain_fields_str.split(",")
+    for contains in must_not_contain_fields:
+        if "username" == contains:
+            if re.search(user.username, password):
+                return False
+        elif "firstname" == contains:
+            if re.search(user.firstname, password):
+                return False
+        elif "lastname" == contains:
+            if re.search(user.lastname, password):
+                return False
+        elif "email" == contains:
+            if re.search(user.email, password):
+                return False
+    return True
+
+
+@index_bp.route('/ratepassword', methods=['POST'])
+def rate_password():
+    # print("\n\nGot pass = ", passwd)
+    # result = zxcvbn(pwd, user_inputs=[wordlist])
+    logged_in = request.form['logged_in']
+    if 'logged_in' in request.form and logged_in == 1:
+        fname = current_user.firstname
+        lname = current_user.lastname
+        username = current_user.username
+        email = current_user.email
+    else:
+        fname = request.form['fname']
+        lname = request.form['lname']
+        username = request.form['username']
+        email = request.form['email']
+
+    password = request.form['password']
+    inputs = []
+    for i in [fname, lname, email, username]:
+        if len(i) != 0:
+            inputs.append(i)
+    if len(password) == 0:
+        return make_response(
+            jsonify({
+                'msg' : 'no-passwd',
+                'feedback': '',
+                'valid' : 'false',
+                'strength': ''
+            }), 200)
+
+    result = zxcvbn(password, user_inputs=inputs)
+    defined_guesses_log = int(Setting().get('zxcvbn_guesses_log'))
+    # attributes to return as json
+    feedback = []
+    rate = result['guesses_log10']/defined_guesses_log
+    if rate < 0.5:
+        strength = "very weak"
+    if rate < 0.6:
+        strength = "weak"
+    elif rate < 1:
+        strength = "medium"
+    else:
+        strength = "strong"
+
+    if result['guesses_log10'] < defined_guesses_log:
+        feedback.append("Add more complexity to your password")
+    for s in result['sequence']:
+        if s['pattern'] == 'dictionary':
+            if s['dictionary_name'] == 'user_inputs':
+                feedback.append("Your password must not contain parts of your firstname, lastname, username or email")
+                break
+    for s in result['sequence']:
+        if s['pattern'] == 'dictionary' and s['dictionary_name'] != 'user_inputs':
+            feedback.append("Your password contains one or more words which exist in common wordlists.")
+            break
+    # in case complexity is high but feedback is still given, then downgrade to 'medium'
+    if strength == "strong" and (len(feedback) != 0 or result['score'] < 4):
+        strength = "medium"
+    return make_response(
+        jsonify({
+            'feedback': feedback,
+            'strength': strength,
+            'valid' : 'true' if len(feedback) == 0 else 'false'
+        }), 200)
+
 
 @index_bp.route('/register', methods=['GET', 'POST'])
 def register():
@@ -765,6 +867,8 @@ def register():
                         lastname=lastname,
                         email=email)
 
+            if Setting().get('zxcvbn_enabled') == False and not password_quality_check(user, password):
+                return render_template('register.html', error="Password does not meet the policy requirements")
             try:
                 result = user.create_local_user()
                 if result and result['status']:

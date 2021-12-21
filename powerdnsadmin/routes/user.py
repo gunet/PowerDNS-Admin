@@ -4,6 +4,7 @@ from flask_login import current_user, login_required, login_manager
 
 from ..models.user import User, Anonymous
 from ..models.setting import Setting
+from .index import password_quality_check
 
 user_bp = Blueprint('user',
                     __name__,
@@ -35,13 +36,15 @@ def before_request():
 @login_required
 def profile():
     if request.method == 'GET':
-        return render_template('user_profile.html')
+        return render_template('user_profile.html',user_info = current_user.get_user_info_by_username(), zxcvbn_enabled=Setting().get('zxcvbn_enabled') )
     if request.method == 'POST':
         if session['authentication_type'] == 'LOCAL':
             firstname = request.form.get('firstname', '').strip()
             lastname = request.form.get('lastname', '').strip()
             email = request.form.get('email', '').strip()
             new_password = request.form.get('password', '')
+            if Setting().get('zxcvbn_enabled') == False and not password_quality_check(current_user, new_password):
+                return render_template('user_profile.html', change_pass_tab = True, user_info = current_user.get_user_info_by_username() , zxcvbn_enabled=Setting().get('zxcvbn_enabled'), error="Password does not meet the policy requirements")
         else:
             firstname = lastname = email = new_password = ''
             current_app.logger.warning(
@@ -82,7 +85,7 @@ def profile():
                     reload_info=False)
         user.update_profile()
 
-        return render_template('user_profile.html')
+        return render_template('user_profile.html', user_info = current_user.get_user_info_by_username(), zxcvbn_enabled=Setting().get('zxcvbn_enabled'))
 
 
 @user_bp.route('/qrcode')
