@@ -31,20 +31,6 @@ domain_bp = Blueprint('domain',
                       template_folder='templates',
                       url_prefix='/domain')
 
-def filter_string(s):
-    s = s.replace('&', '&amp;')
-    s = s.replace('"', '&quot;')
-    s = s.replace('\'', '&#039;')
-    s = s.replace('<', '&lt;')
-    s = s.replace('>', '&gt;')
-    return s
-
-def is_forbidden(s):
-    forbidden = ['&', '\'', '>', '<', 'script']
-    for f in forbidden:
-        if f in s:
-            return True
-    return False
 
 @domain_bp.before_request
 def before_request():
@@ -659,6 +645,12 @@ def change_account(domain_name):
     else:
         abort(500)
 
+def is_forbidden(s):
+    forbidden = ['&', '\'', '>', '<', 'script']
+    for f in forbidden:
+        if f in s:
+            return True
+    return False
 
 @domain_bp.route('/<path:domain_name>/apply',
                  methods=['POST'],
