@@ -24,10 +24,6 @@ class Setting(db.Model):
         'auto_ptr': False,
         'record_quick_edit': True,
         'pretty_ipv6_ptr': False,
-        'dnssec_admins_only': False,
-        'allow_user_create_domain': False,
-        'allow_user_remove_domain': False,
-        'allow_user_view_history': False,
 	'delete_sso_accounts': False,
         'bg_domain_updates': False,
         'enable_api_rr_history': True,
@@ -163,82 +159,6 @@ class Setting(db.Model):
         'saml_urn_prefix': 'urn:mace:uoa.gr',
         'saml_autoprovisioning_attribute': 'urn:oid:1.3.6.1.4.1.5923.1.1.1.7',
         'saml_purge': False,
-        'forward_records_allow_edit': {
-            'A': True,
-            'AAAA': True,
-            'AFSDB': False,
-            'ALIAS': False,
-            'CAA': True,
-            'CERT': False,
-            'CDNSKEY': False,
-            'CDS': False,
-            'CNAME': True,
-            'DNSKEY': False,
-            'DNAME': False,
-            'DS': False,
-            'HINFO': False,
-            'KEY': False,
-            'LOC': True,
-            'LUA': False,
-            'MX': True,
-            'NAPTR': False,
-            'NS': True,
-            'NSEC': False,
-            'NSEC3': False,
-            'NSEC3PARAM': False,
-            'OPENPGPKEY': False,
-            'PTR': True,
-            'RP': False,
-            'RRSIG': False,
-            'SOA': False,
-            'SPF': True,
-            'SSHFP': False,
-            'SRV': True,
-            'TKEY': False,
-            'TSIG': False,
-            'TLSA': False,
-            'SMIMEA': False,
-            'TXT': True,
-            'URI': False
-        },
-        'reverse_records_allow_edit': {
-            'A': False,
-            'AAAA': False,
-            'AFSDB': False,
-            'ALIAS': False,
-            'CAA': False,
-            'CERT': False,
-            'CDNSKEY': False,
-            'CDS': False,
-            'CNAME': False,
-            'DNSKEY': False,
-            'DNAME': False,
-            'DS': False,
-            'HINFO': False,
-            'KEY': False,
-            'LOC': True,
-            'LUA': False,
-            'MX': False,
-            'NAPTR': False,
-            'NS': True,
-            'NSEC': False,
-            'NSEC3': False,
-            'NSEC3PARAM': False,
-            'OPENPGPKEY': False,
-            'PTR': True,
-            'RP': False,
-            'RRSIG': False,
-            'SOA': False,
-            'SPF': False,
-            'SSHFP': False,
-            'SRV': False,
-            'TKEY': False,
-            'TSIG': False,
-            'TLSA': False,
-            'SMIMEA': False,
-            'TXT': True,
-            'URI': False
-        },
         'ttl_options': '1 minute,5 minutes,30 minutes,60 minutes,24 hours',
         'otp_field_enabled': True,
         'custom_css': '',
@@ -349,33 +269,6 @@ class Setting(db.Model):
                 return self.defaults[setting]
         else:
             current_app.logger.error('Unknown setting queried: {0}'.format(setting))
-            
-    def get_records_allow_to_edit(self):
-        return list(
-            set(self.get_forward_records_allow_to_edit() +
-                self.get_reverse_records_allow_to_edit()))
-
-    def get_forward_records_allow_to_edit(self):
-        records = self.get('forward_records_allow_edit')
-        f_records = literal_eval(records) if isinstance(records,
-                                                        str) else records
-        r_name = [r for r in f_records if f_records[r]]
-        # Sort alphabetically if python version is smaller than 3.6
-        if sys.version_info[0] < 3 or (sys.version_info[0] == 3
-                                       and sys.version_info[1] < 6):
-            r_name.sort()
-        return r_name
-
-    def get_reverse_records_allow_to_edit(self):
-        records = self.get('reverse_records_allow_edit')
-        r_records = literal_eval(records) if isinstance(records,
-                                                        str) else records
-        r_name = [r for r in r_records if r_records[r]]
-        # Sort alphabetically if python version is smaller than 3.6
-        if sys.version_info[0] < 3 or (sys.version_info[0] == 3
-                                       and sys.version_info[1] < 6):
-            r_name.sort()
-        return r_name
 
     def get_ttl_options(self):
         return [(pytimeparse.parse(ttl), ttl)

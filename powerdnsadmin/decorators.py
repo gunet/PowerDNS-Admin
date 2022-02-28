@@ -5,6 +5,7 @@ from flask import g, request, abort, current_app, render_template
 from flask_login import current_user
 
 from .models import User, ApiKey, Setting, Domain, Setting
+from .models.role import Role
 from .lib.errors import RequestIsNotJSON, NotEnoughPrivileges
 from .lib.errors import DomainAccessForbidden
 
@@ -15,6 +16,18 @@ def admin_role_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if current_user.role.name != 'Administrator':
+            abort(403)
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+def can_edit_roles(f):
+    """
+    Grant access only for users with can_edit_roles flag on
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.role.can_edit_roles and current_user.role.name != 'Administrator':
             abort(403)
         return f(*args, **kwargs)
 
@@ -40,9 +53,11 @@ def history_access_required(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if current_user.role.name not in [
-            'Administrator', 'Operator'
-        ] and not Setting().get('allow_user_view_history'):
+        role = Role.query.filter(Role.id == current_user.role_id).first()
+        if role.name not in ['Administrator', 'Operator']:
+            if role.can_access_history == False:
+                abort(403)
+        if role.name == 'Operator' and role.can_access_history == False:
             abort(403)
         return f(*args, **kwargs)
 
@@ -58,19 +73,20 @@ def can_access_domain(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if current_user.role.name not in ['Administrator', 'Operator']:
-            domain_name = kwargs.get('domain_name')
-            domain = Domain.query.filter(Domain.name == domain_name).first()
+        if not current_user.role.can_view_edit_all_domains:
+            if current_user.role.name not in ['Administrator', 'Operator']:
+                domain_name = kwargs.get('domain_name')
+                domain = Domain.query.filter(Domain.name == domain_name).first()
 
-            if not domain:
-                abort(404)
+                if not domain:
+                    abort(404)
 
-            valid_access = Domain(id=domain.id).is_valid_access(
-                current_user.id)
+                valid_access = Domain(id=domain.id).is_valid_access(
+                    current_user.id)
 
-            if not valid_access:
-                abort(403)
-
+                if not valid_access:
+                    abort(403)
+        
         return f(*args, **kwargs)
 
     return decorated_function
@@ -79,16 +95,14 @@ def can_access_domain(f):
 def can_configure_dnssec(f):
     """
     Grant access if:
-        - user is in Operator role or higher, or
-        - dnssec_admins_only is off
+        - Role is has right so
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if current_user.role.name not in [
-                'Administrator', 'Operator'
-        ] and Setting().get('dnssec_admins_only'):
-            abort(403)
-
+        role = Role.query.filter(Role.id == current_user.role_id).first()
+        if role.name not in ['Administrator']:
+            if role.can_configure_dnssec == False:
+                abort(403)
         return f(*args, **kwargs)
 
     return decorated_function
@@ -101,12 +115,16 @@ def can_remove_domain(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if current_user.role.name not in [
-                'Administrator', 'Operator'
-        ] and not Setting().get('allow_user_remove_domain'):
-            abort(403)
+        # if current_user.role.name not in [
+        #         'Administrator', 'Operator'
+        # ] and not Setting().get('allow_user_remove_domain'):
+        #     abort(403)
+        # return f(*args, **kwargs)
+        role = Role.query.filter(Role.id == current_user.role_id).first()
+        if role.name not in ['Administrator']:
+            if role.can_remove_domain == False:
+                abort(403)
         return f(*args, **kwargs)
-
     return decorated_function
 
 
@@ -119,10 +137,16 @@ def can_create_domain(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if current_user.role.name not in [
-                'Administrator', 'Operator'
-        ] and not Setting().get('allow_user_create_domain'):
-            abort(403)
+
+        # if current_user.role.name not in [
+        #         'Administrator', 'Operator'
+        # ] and not Setting().get('allow_user_create_domain'):
+        #     abort(403)
+        # return f(*args, **kwargs)
+        role = Role.query.filter(Role.id == current_user.role_id).first()
+        if role.name not in ['Administrator']:
+            if role.can_create_domain == False:
+                abort(403)
         return f(*args, **kwargs)
 
     return decorated_function
@@ -253,12 +277,19 @@ def api_can_create_domain(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if current_user.role.name not in [
-                'Administrator', 'Operator'
-        ] and not Setting().get('allow_user_create_domain'):
-            msg = "User {0} does not have enough privileges to create domain"
-            current_app.logger.error(msg.format(current_user.username))
-            raise NotEnoughPrivileges()
+        # if current_user.role.name not in [
+        #         'Administrator', 'Operator'
+        # ] and not Setting().get('allow_user_create_domain'):
+        #     msg = "User {0} does not have enough privileges to create domain"
+        #     current_app.logger.error(msg.format(current_user.username))
+        #     raise NotEnoughPrivileges()
+        # return f(*args, **kwargs)
+        role = Role.query.filter(Role.id == current_user.role_id).first()
+        if role.name not in ['Administrator', 'Operator']:
+            if role.can_create_domain == False:
+                msg = "User {0} does not have enough privileges to create domain"
+                current_app.logger.error(msg.format(current_user.username))
+                raise NotEnoughPrivileges()
         return f(*args, **kwargs)
 
     return decorated_function
@@ -272,12 +303,19 @@ def apikey_can_create_domain(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if g.apikey.role.name not in [
-                'Administrator', 'Operator'
-        ] and not Setting().get('allow_user_create_domain'):
-            msg = "ApiKey #{0} does not have enough privileges to create domain"
-            current_app.logger.error(msg.format(g.apikey.id))
-            raise NotEnoughPrivileges()
+        # if g.apikey.role.name not in [
+        #         'Administrator', 'Operator'
+        # ] and not Setting().get('allow_user_create_domain'):
+        #     msg = "ApiKey #{0} does not have enough privileges to create domain"
+        #     current_app.logger.error(msg.format(g.apikey.id))
+        #     raise NotEnoughPrivileges()
+        # return f(*args, **kwargs)
+        role = Role.query.filter(Role.id == g.apikey.role_id).first()
+        if role.name not in ['Administrator', 'Operator']:
+            if role.can_create_domain == False:
+                msg = "User {0} does not have enough privileges to create domain"
+                current_app.logger.error(msg.format(current_user.username))
+                raise NotEnoughPrivileges()
         return f(*args, **kwargs)
 
     return decorated_function
@@ -294,9 +332,10 @@ def apikey_can_remove_domain(http_methods=[]):
         def decorated_function(*args, **kwargs):
             check_current_http_method = not http_methods or request.method in http_methods
 
+            role = Role.query.filter(Role.id == g.apikey.role_id).first()
             if (check_current_http_method and
-                g.apikey.role.name not in ['Administrator', 'Operator'] and
-                not Setting().get('allow_user_remove_domain')
+                role.name not in ['Administrator', 'Operator'] and
+                not role.can_remove_domain
             ):
                 msg = "ApiKey #{0} does not have enough privileges to remove domain"
                 current_app.logger.error(msg.format(g.apikey.id))
@@ -348,8 +387,8 @@ def apikey_can_access_domain(f):
 def apikey_can_configure_dnssec(http_methods=[]):
     """
     Grant access if:
-        - user is in Operator role or higher, or
-        - dnssec_admins_only is off
+        - role is Administrator or Operator
+        - or 
     """
     def decorator(f=None):
         @wraps(f)
@@ -358,7 +397,7 @@ def apikey_can_configure_dnssec(http_methods=[]):
 
             if (check_current_http_method and
                 g.apikey.role.name not in ['Administrator', 'Operator'] and
-                Setting().get('dnssec_admins_only')
+                g.apikey.role.can_configure_dnssec == False
             ):
                 msg = "ApiKey #{0} does not have enough privileges to configure dnssec"
                 current_app.logger.error(msg.format(g.apikey.id))
