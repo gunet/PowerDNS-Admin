@@ -707,8 +707,7 @@ class User(db.Model):
             for entitlement in entitlements:
                 arguments=entitlement.split(':')
                 entArgs=arguments[arguments.index('powerdns-admin')+1:]
-                role= entArgs[0]
-                self.set_role(role)
+                role= self.get_role(role,entArgs[0].lower())
                 if (role not in ['Administrator', 'Operator']) and len(entArgs)>1:
                     current_domains=getUserInfo(self.get_user_domains())
                     current_accounts=getUserInfo(self.get_accounts())
@@ -719,8 +718,11 @@ class User(db.Model):
                         self.addMissingAccount(account, current_accounts)
             self.set_role(role)
 
+    def get_role_hierarchy():
+        return { "user": 1, "operator" : 2, "administrator" : 3} #placeholder for the new dictionary
+
     def get_role(self, previousRole, newRole):
-        dict = { "user": 1, "operator" : 2, "administrator" : 3}
+        dict = get_role_hierarchy()
         if (dict[newRole] > dict[previousRole]):
             return newRole
         else:
