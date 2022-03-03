@@ -13,7 +13,7 @@ import qrcode.image.svg as qrc_svg
 from io import BytesIO
 
 from .base import db
-from .role import Role
+from .role import Role, get_role_hierarchy
 from .setting import Setting
 from .domain_user import DomainUser
 from .account_user import AccountUser
@@ -717,9 +717,6 @@ class User(db.Model):
                         account=entArgs[2]
                         self.addMissingAccount(account, current_accounts)
             self.set_role(role)
-
-    def get_role_hierarchy():
-        return { "user": 1, "operator" : 2, "administrator" : 3} #placeholder for the new dictionary
 
     def get_role(self, previousRole, newRole):
         dict = get_role_hierarchy()

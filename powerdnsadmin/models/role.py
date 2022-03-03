@@ -271,3 +271,63 @@ class Role(db.Model):
             dictionary = self.get_reverse_records_allow_to_view_edit()
 
         return dictionary
+
+    def get_score(self):
+        """
+        Calculates the hierarchy score of the role.
+        A higher score means a more powerful role.
+        Useful for roles provisioning etc.
+        """
+        rolescore = 0
+        if self.name == 'Administrator':
+            rolescore = 20
+        elif self.name == 'Operator':
+            rolescore = 19
+        else:
+            if self.name == 'User':     # Give 'User' role lower score over custom Roles
+                rolescore = -1
+            if self.can_view_edit_all_domains:
+                rolescore+=5
+            if self.can_access_history:
+                rolescore+=4
+            if self.can_remove_domain:
+                rolescore+=3
+            if self.can_create_domain:
+                rolescore+=2
+            if self.can_configure_dnssec:
+                rolescore+=1
+        return rolescore
+
+def get_role_hierarchy():
+    """
+    Returns a dictionary of all roles
+    and their role hierarchy score.
+    A higher score means a more powerful role.
+    """
+    hierarchy = {}
+    roles = Role.query.order_by(Role.id).all()
+
+    for role in roles:
+        hierarchy[role.name] = role.get_score()
+    
+    return hierarchy
+
+def get_highest_role(roles: 'list[str]'):
+    """
+    Returns the name of the role with the
+    highest hierarchy from a list of rolenames
+    """
+    highest_role = ""
+    highest_score = -2  # -2 is default because score value can be -1 for 'User'
+    for rolename in roles:
+        role = Role.query.filter(Role.name == rolename).first()
+        try:
+            score = role.get_score()
+            if score > highest_score:
+                highest_score = score
+                highest_role = rolename
+        except:
+            current_app.logger.error(
+                'Role {0} does not exist.'.format(rolename))
+
+    return highest_role
