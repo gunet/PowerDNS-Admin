@@ -25,12 +25,16 @@
                         <button type="button" class="btn btn-flat btn-primary pull-left button_add_role">
                             Add Role&nbsp;<i class="fa fa-plus"></i>
                         </button>
+                        <button type="button" style="position: relative; margin-left: 20px" class="btn btn-flat btn-primary pull-left button_add_role">
+                            Save Hierarchy
+                        </button>
                     </a>
                 </div>
                 <div class="box-body">
                     <table id="tbl_roles" class="table table-bordered table-striped">
                         <thead>
                             <tr>
+                                <th>Hierarchy</th>
                                 <th>Name</th>
                                 <th>Description</th>
                                 <th>Users</th>
@@ -41,6 +45,11 @@
                         <tbody>
                             {% for role in roles %}
                             <tr class="odd gradeX">
+                                {% if role.name == 'User' %}
+                                <td>{{ roles|length + 1 }}</td>
+                                {% else %}
+                                <td>{{ role.id }}</td>
+                                {% endif %}
                                 <td>{{ role.name }}</td>
                                 <td>{{ role.description }}</td>
                                 <td>{{ role.users | length }}</td>
@@ -83,8 +92,8 @@
         "searching": true,
         "ordering": true,
         "columnDefs": [{
-            "orderable": false,
-            "targets": [-1]
+            "targets": 0,
+            "visible": true
         }],
         "info": false,
         "autoWidth": false,
@@ -92,7 +101,10 @@
             [10, 25, 50, 100, -1],
             [10, 25, 50, 100, "All"]
         ],
-        "pageLength": 10
+        "pageLength": 10,
+        rowReorder: {
+            selector: 'tr'
+        }
     });
 
     // handle deletion of role
