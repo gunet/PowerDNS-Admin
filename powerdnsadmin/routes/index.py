@@ -1147,7 +1147,7 @@ def saml_metadata():
     if not Setting().get('saml_enabled'):
         current_app.logger.error("SAML authentication is disabled.")
         abort(400)
-
+    from onelogin.saml2.utils import OneLogin_Saml2_Utils
     req = saml.prepare_flask_request(request)
     auth = saml.init_saml_auth(req)
     if auth is None:
@@ -1174,6 +1174,7 @@ def saml_authorized():
     if not Setting().get('saml_enabled'):
         current_app.logger.error("SAML authentication is disabled.")
         abort(400)
+    from onelogin.saml2.utils import OneLogin_Saml2_Utils
     req = saml.prepare_flask_request(request)
     auth = saml.init_saml_auth(req)
     if auth is None:
