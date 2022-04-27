@@ -814,7 +814,7 @@ def get_role_names(roles):
     """
     roles_list=[]
     for role in roles:
-        roles_list.append(role.name)
+        roles_list.append(role.name.lower())
     return roles_list
 
 def getUserInfo(DomainsOrAccounts):
