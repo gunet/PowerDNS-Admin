@@ -308,7 +308,7 @@ def get_role_hierarchy():
     roles = Role.query.order_by(Role.id).all()
 
     for role in roles:
-        hierarchy[role.name] = role.get_score()
+        hierarchy[role.name.lower()] = role.get_score()
     
     return hierarchy
 
