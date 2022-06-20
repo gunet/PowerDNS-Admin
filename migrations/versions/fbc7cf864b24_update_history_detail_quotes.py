@@ -1,7 +1,7 @@
 """update history detail quotes
 
 Revision ID: fbc7cf864b24
-Revises: 0967658d9c0d
+Revises: 11df9ff49c0a
 Create Date: 2022-05-04 19:49:54.054285
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'fbc7cf864b24'
-down_revision = '0967658d9c0d'
+down_revision = '11df9ff49c0a'
 branch_labels = None
 depends_on = None
 
