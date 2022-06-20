@@ -60,6 +60,7 @@
                                 {% if current_user.role.name in ['Administrator', 'Operator'] or current_user.role.can_access_history %}
                                 <th >Changelog</th>
                                 {% endif %}
+                                <th>Invisible Sorting Column</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -255,9 +256,7 @@
     // handle apply changes button
     $(document.body).on("click",".button_apply_changes", function() {
         if (nNew || nEditing) {
-            var modal = $("#modal_error");
-            modal.find('.modal-body p').text("Previous record not saved. Please save it before applying the changes.");
-            modal.modal('show');
+            showErrorModal("Previous record not saved. Please save it before applying the changes.");
             return;
         }
 
@@ -281,9 +280,7 @@
     // handle add record button
     $(document.body).on("click", ".button_add_record", function (e) {
             if (nNew || nEditing) {
-                var modal = $("#modal_error");
-                modal.find('.modal-body p').text("Previous record not saved. Please save it before adding more record.");
-                modal.modal('show');
+                showErrorModal("Previous record not saved. Please save it before adding more record.");
                 return;
             }
             // clear search first

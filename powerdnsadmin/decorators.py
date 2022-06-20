@@ -6,8 +6,9 @@ from flask_login import current_user
 
 from .models import User, ApiKey, Setting, Domain, Setting
 from .models.role import Role
-from .lib.errors import RequestIsNotJSON, NotEnoughPrivileges
-from .lib.errors import DomainAccessForbidden
+from .lib.errors import RequestIsNotJSON, NotEnoughPrivileges, RecordTTLNotAllowed, RecordTypeNotAllowed
+from .lib.errors import DomainAccessForbidden, DomainOverrideForbidden
+
 
 def admin_role_required(f):
     """
@@ -277,19 +278,19 @@ def api_can_create_domain(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # if current_user.role.name not in [
-        #         'Administrator', 'Operator'
-        # ] and not Setting().get('allow_user_create_domain'):
-        #     msg = "User {0} does not have enough privileges to create domain"
-        #     current_app.logger.error(msg.format(current_user.username))
-        #     raise NotEnoughPrivileges()
-        # return f(*args, **kwargs)
         role = Role.query.filter(Role.id == current_user.role_id).first()
-        if role.name not in ['Administrator', 'Operator']:
-            if role.can_create_domain == False:
-                msg = "User {0} does not have enough privileges to create domain"
-                current_app.logger.error(msg.format(current_user.username))
-                raise NotEnoughPrivileges()
+        if role.name not in ['Administrator', 'Operator'
+        ] and not role.can_create_domain:
+            msg = "User {0} does not have enough privileges to create domain"
+            current_app.logger.error(msg.format(current_user.username))
+            raise NotEnoughPrivileges()
+        
+        if Setting().get('deny_domain_override'):
+            req = request.get_json(force=True)
+            domain = Domain()
+            if req['name'] and domain.is_overriding(req['name']):
+                raise DomainOverrideForbidden()
+
         return f(*args, **kwargs)
 
     return decorated_function
@@ -300,22 +301,25 @@ def apikey_can_create_domain(f):
     Grant access if:
         - user is in Operator role or higher, or
         - allow_user_create_domain is on
+        and
+        - deny_domain_override is off or
+        - override_domain is true (from request)
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # if g.apikey.role.name not in [
-        #         'Administrator', 'Operator'
-        # ] and not Setting().get('allow_user_create_domain'):
-        #     msg = "ApiKey #{0} does not have enough privileges to create domain"
-        #     current_app.logger.error(msg.format(g.apikey.id))
-        #     raise NotEnoughPrivileges()
-        # return f(*args, **kwargs)
         role = Role.query.filter(Role.id == g.apikey.role_id).first()
-        if role.name not in ['Administrator', 'Operator']:
-            if role.can_create_domain == False:
-                msg = "User {0} does not have enough privileges to create domain"
-                current_app.logger.error(msg.format(current_user.username))
-                raise NotEnoughPrivileges()
+        if role.name not in ['Administrator', 'Operator'
+        ] and not role.can_create_domain:
+            msg = "ApiKey #{0} does not have enough privileges to create domain"
+            current_app.logger.error(msg.format(g.apikey.id))
+            raise NotEnoughPrivileges()
+
+        if Setting().get('deny_domain_override'):
+            req = request.get_json(force=True)
+            domain = Domain()
+            if req['name'] and domain.is_overriding(req['name']):
+                raise DomainOverrideForbidden()
+
         return f(*args, **kwargs)
 
     return decorated_function
@@ -405,6 +409,60 @@ def apikey_can_configure_dnssec(http_methods=[]):
             return f(*args, **kwargs) if f else None
         return decorated_function
     return decorator
+
+def allowed_record_types(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if request.method == 'GET':
+            return f(*args, **kwargs)
+
+        if g.apikey.role.name in ['Administrator', 'Operator']:
+            return f(*args, **kwargs)
+
+        records_allowed_to_edit = Setting().get_records_allow_to_edit()
+        content = request.get_json()
+        try:
+            for record in content['rrsets']:
+                if 'type' not in record:
+                    raise RecordTypeNotAllowed()
+
+                if record['type'] not in records_allowed_to_edit:
+                    current_app.logger.error(f"Error: Record type not allowed: {record['type']}")
+                    raise RecordTypeNotAllowed(message=f"Record type not allowed: {record['type']}")
+        except (TypeError, KeyError) as e:
+            raise e
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+def allowed_record_ttl(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not Setting().get('enforce_api_ttl'):
+            return f(*args, **kwargs)
+
+        if request.method == 'GET':
+            return f(*args, **kwargs)
+            
+        if g.apikey.role.name in ['Administrator', 'Operator']:
+            return f(*args, **kwargs)
+
+        allowed_ttls = Setting().get_ttl_options()
+        allowed_numeric_ttls = [ ttl[0] for ttl in allowed_ttls ]
+        content = request.get_json()
+        try:
+            for record in content['rrsets']:
+                if 'ttl' not in record:
+                    raise RecordTTLNotAllowed()
+
+                if record['ttl'] not in allowed_numeric_ttls:
+                    current_app.logger.error(f"Error: Record TTL not allowed: {record['ttl']}")
+                    raise RecordTTLNotAllowed(message=f"Record TTL not allowed: {record['ttl']}")
+        except (TypeError, KeyError) as e:
+            raise e
+        return f(*args, **kwargs)
+
+    return decorated_function
 
 
 def apikey_auth(f):

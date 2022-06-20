@@ -1,3 +1,4 @@
+import json
 import re
 import traceback
 from flask import current_app
@@ -142,9 +143,20 @@ class Domain(db.Model):
                 current_app.logger.debug(traceback.format_exc())
 
             # update/add new domain
+            account_cache = {}
             for data in jdata:
                 if 'account' in data:
-                    account_id = Account().get_id_by_name(data['account'])
+                    # if no account is set don't try to query db
+                    if data['account'] == '':
+                        find_account_id = None
+                    else:
+                        find_account_id = account_cache.get(data['account'])
+                        # if account was not queried in the past and hence not in cache
+                        if find_account_id is None:
+                            find_account_id = Account().get_id_by_name(data['account'])
+                            # add to cache
+                            account_cache[data['account']] = find_account_id
+                    account_id = find_account_id
                 else:
                     current_app.logger.debug(
                         "No 'account' data found in API result - Unsupported PowerDNS version?"
@@ -421,7 +433,7 @@ class Domain(db.Model):
             if result['status'] == 'ok':
                 history = History(msg='Add reverse lookup domain {0}'.format(
                     domain_reverse_name),
-                    detail=str({
+                    detail=json.dumps({
                         'domain_type': 'Master',
                         'domain_master_ips': ''
                     }),
@@ -806,7 +818,7 @@ class Domain(db.Model):
         else:
             return {'status': 'error', 'msg': 'This domain does not exist'}
 
-    def assoc_account(self, account_id):
+    def assoc_account(self, account_id, update=True):
         """
         Associate domain with a domain, specified by account id
         """
@@ -842,7 +854,8 @@ class Domain(db.Model):
                 current_app.logger.error(jdata['error'])
                 return {'status': 'error', 'msg': jdata['error']}
             else:
-                self.update()
+                if update:
+                    self.update()
                 msg_str = 'Account changed for domain {0} successfully'
                 current_app.logger.info(msg_str.format(domain_name))
                 return {'status': 'ok', 'msg': 'account changed successfully'}
@@ -879,3 +892,18 @@ class Domain(db.Model):
                 DomainUser.user_id == user_id,
                 AccountUser.user_id == user_id
             )).filter(Domain.id == self.id).first()
+
+    # Return None if this domain does not exist as record, 
+    # Return the parent domain that hold the record if exist
+    def is_overriding(self, domain_name):
+        upper_domain_name = '.'.join(domain_name.split('.')[1:])
+        while upper_domain_name != '':
+            if self.get_id_by_name(upper_domain_name.rstrip('.')) != None:
+                    upper_domain = self.get_domain_info(upper_domain_name)
+                    if 'rrsets' in upper_domain:
+                        for r in upper_domain['rrsets']:
+                            if domain_name.rstrip('.') in r['name'].rstrip('.'):
+                                current_app.logger.error('Domain already exists as a record: {} under domain: {}'.format(r['name'].rstrip('.'), upper_domain_name))
+                                return upper_domain_name
+            upper_domain_name = '.'.join(upper_domain_name.split('.')[1:])
+        return None

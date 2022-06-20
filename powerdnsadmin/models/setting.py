@@ -24,7 +24,7 @@ class Setting(db.Model):
         'auto_ptr': False,
         'record_quick_edit': True,
         'pretty_ipv6_ptr': False,
-	'delete_sso_accounts': False,
+	    'delete_sso_accounts': False,
         'bg_domain_updates': False,
         'enable_api_rr_history': True,
         'site_name': 'PowerDNS-Admin',
@@ -159,6 +159,7 @@ class Setting(db.Model):
         'saml_urn_prefix': 'urn:mace:uoa.gr',
         'saml_autoprovisioning_attribute': 'urn:oid:1.3.6.1.4.1.5923.1.1.1.7',
         'saml_purge': False,
+        'enforce_api_ttl': False,
         'ttl_options': '1 minute,5 minutes,30 minutes,60 minutes,24 hours',
         'otp_field_enabled': True,
         'custom_css': '',
@@ -172,7 +173,9 @@ class Setting(db.Model):
         'zxcvbn_enabled': False,
         'zxcvbn_guesses_log' : 11,
         'otp_force': False,
-        'max_history_records': 1000
+        'max_history_records': 1000,
+        'deny_domain_override': False,
+        'account_name_extra_chars': False
     }
 
     def __init__(self, id=None, name=None, value=None):
@@ -253,15 +256,15 @@ class Setting(db.Model):
 
     def get(self, setting):
         if setting in self.defaults:
- 
+
             if setting.upper() in current_app.config:
                 result = current_app.config[setting.upper()]
             else:
                 result = self.query.filter(Setting.name == setting).first()
- 
+
             if result is not None:
                 if hasattr(result,'value'):
-                    result = result.value 
+                    result = result.value
                 return strtobool(result) if result in [
                     'True', 'False'
                 ] else result
