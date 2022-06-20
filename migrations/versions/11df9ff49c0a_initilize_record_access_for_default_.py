@@ -1,7 +1,7 @@
 """initilize record access for default roles
 
 Revision ID: 11df9ff49c0a
-Revises: 0967658d9c0d
+Revises: 6ea7dc05f496
 Create Date: 2022-01-12 12:45:09.848995
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy import Table, MetaData, or_
 import json
 # revision identifiers, used by Alembic.
 revision = '11df9ff49c0a'
-down_revision = '0967658d9c0d'
+down_revision = '6ea7dc05f496'
 branch_labels = None
 depends_on = None
 
